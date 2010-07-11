@@ -23,7 +23,7 @@
 	 list_shuffle/1, date_str/1]).
 
 %% "bittorrent-like" functions
--export([decode_ips/1]).
+-export([decode_ips/1, decode_ips6/1]).
 
 %%====================================================================
 
@@ -85,6 +85,18 @@ decode_ips(<<B1:8, B2:8, B3:8, B4:8, Port:16/big, Rest/binary>>, Accum) ->
     decode_ips(Rest, [{{B1, B2, B3, B4}, Port} | Accum]);
 decode_ips(_Odd, Accum) ->
     Accum. % This case is to handle wrong tracker returns. Ignore spurious bytes.
+
+%% @doc Decode the IP response from the tracker (IPv6)
+%% @end
+decode_ips6(IPs) -> decode_ips6(IPs, []).
+
+decode_ips6(<<>>, Accum) -> Accum;
+decode_ips6(<<K1:16, K2:16, K3:16, K4:16, K5:16, K6:16, K7:16, K8:16, Port:16, Rest/binary>>,
+            Accum) ->
+        decode_ips6(Rest, [{{K1, K2, K3, K4, K5, K6, K7, K8}, Port} | Accum]);
+decode_ips6(Odd, Accum) ->
+    error_logger:info_report([tracker_wrong_ip6_decode, Odd]),
+    Accum.
 
 %% @doc Group a sorted list
 %%  if the input is a sorted list L, the output is [{E, C}] where E is an element

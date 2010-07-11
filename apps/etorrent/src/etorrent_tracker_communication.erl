@@ -370,11 +370,13 @@ build_tracker_url(Url, Event,
 
 %%% Tracker response lookup functions
 response_ips(BC) ->
-    case etorrent_bcoding:get_value("peers", BC, none) of
-	none -> [];
-	IPs  -> etorrent_utils:decode_ips(IPs)
-    end.
-
+    V4Add = response_ips4(BC),
+    V6Add = response_ips6(BC),
+    case V6Add of
+        [] -> ignore;
+        [_|_] -> error_logger:info_report([ipv6_peers, V6Add])
+    end,
+    V4Add ++ V6Add.
 
 %%% BEP 12 stuff
 %%% ----------------------------------------------------------------------
@@ -406,6 +408,25 @@ swap_in_tier(Url, [H | T], Acc) ->
 	    {H, lists:reverse(Acc) ++ [Url | T]};
 	false ->
 	    swap_in_tier(Url, T, [H | Acc])
+    end.
+
+%% BEP 07 stuff
+%% ----------------------------------------------------------------------
+response_ips6(BC) ->
+    case etorrent_bcoding:search_dict_default({string, "peers6"}, BC, none) of
+        {string, Ips} ->
+            etorrent_utils:decode_ips6(list_to_binary(Ips));
+        none -> []
+    end.
+
+response_ips4(BC) ->
+    case etorrent_bcoding:search_dict_default({string, "peers"}, BC, none) of
+        {list, Ips} ->
+            etorrent_utils:decode_ips(Ips);
+        {string, Ips} ->
+            etorrent_utils:decode_ips(list_to_binary(Ips));
+        none ->
+            []
     end.
 
 should_swap_for(Url1, Url2) ->
